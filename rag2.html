@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Browser RAG App</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #121212;
+      color: #ffffff;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      height: 100vh;
+    }
+
+    h1 {
+      margin-top: 20px;
+      font-size: 2.5rem;
+      color: #4caf50;
+    }
+
+    .chat-container {
+      width: 100%;
+      max-width: 600px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+      overflow-y: auto;
+      border-radius: 10px;
+      background-color: #1e1e1e;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    }
+
+    #search-output {
+      width: 100%;
+      max-width: 100%;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+      white-space: pre-wrap;
+      padding: 10px;
+      background-color: #2e2e2e;
+      color: #fff;
+      border-radius: 5px;
+    }
+
+    .message {
+      width: 100%;
+      margin: 10px 0;
+      padding: 10px;
+      border-radius: 10px;
+      line-height: 1.5;
+    }
+
+    .user-message {
+      align-self: flex-end;
+      background-color: #4caf50;
+      color: #121212;
+    }
+
+    .system-message {
+      align-self: flex-start;
+      background-color: #333;
+      color: #fff;
+    }
+
+    .input-container {
+      width: 100%;
+      max-width: 600px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 10px;
+      padding: 10px;
+    }
+
+    #search-input {
+      flex: 1;
+      padding: 10px;
+      font-size: 16px;
+      border: none;
+      border-radius: 5px;
+      background-color: #333;
+      color: #fff;
+      outline: none;
+    }
+
+    #search {
+      padding: 10px 20px;
+      font-size: 16px;
+      background-color: #4caf50;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    #search:hover {
+      background-color: #45a049;
+    }
+  </style>
+  <script type="module">
+    document.addEventListener('DOMContentLoaded', async () => {
+      const CHROMA_SERVER_URL = 'http://localhost:8000';
+  
+      document.getElementById('search').addEventListener('click', async () => {
+        const query = document.getElementById('search-input').value;
+        try {
+          const response = await fetch(`${CHROMA_SERVER_URL}/collections/mi_coleccion_pdf/query`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              query_embeddings: [await getQueryEmbedding(query)],
+              n_results: 3,
+            }),
+          });
+  
+          if (!response.ok) {
+            throw new Error(`Error en la consulta: ${response.statusText}`);
+          }
+  
+          const results = await response.json();
+  
+          document.getElementById('search-output').textContent = JSON.stringify(results, null, 2);
+  
+          if (results && results.documents && results.documents.length > 0) {
+            const mostSimilarChunk = results.documents[0];
+            const messages = [
+              { role: "system", content: "You are a research assistant. Answer the question: " + query },
+              { role: "user", content: mostSimilarChunk },
+            ];
+  
+            const output = await generateResponse(messages);
+            document.getElementById('generated-output').textContent = output;
+          }
+        } catch (error) {
+          console.error('Error en la búsqueda:', error);
+          document.getElementById('search-output').textContent = 'Error en la búsqueda. Verifica la consola.';
+        }
+      });
+  
+      async function getQueryEmbedding(query) {
+        return await extractor(query, { pooling: 'mean', quantize: true, precision: 'binary' });
+      }
+  
+      async function generateResponse(messages) {
+        const generator = await pipeline('text-generation', 'onnx-community/Llama-3.2-1B-Instruct-q4f16', {});
+        const output = await generator(messages, { max_new_tokens: 128 });
+        return output[0].generated_text[2].content;
+      }
+    });
+  </script>  
+</head>
+<body>
+  <h1>Dori WASM</h1>
+  <div class="chat-container">
+    <pre id="output">Cargando...</pre>
+  </div>
+  <div class="chat-container">
+    <pre id="search-output"></pre>
+  </div>
+  <div class="input-container">
+    <input type="text" id="search-input" placeholder="Escribe tu mensaje aquí...">
+    <button id="search">Enviar</button>
+  </div>
+</body>
+</html>

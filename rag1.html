@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Browser RAG App</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #121212;
+      color: #ffffff;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      height: 100vh;
+    }
+
+    h1 {
+      margin-top: 20px;
+      font-size: 2.5rem;
+      color: #4caf50;
+    }
+
+    .chat-container {
+      width: 100%;
+      max-width: 600px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+      overflow-y: auto;
+      border-radius: 10px;
+      background-color: #1e1e1e;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    }
+
+    #search-output {
+      width: 100%;
+      max-width: 100%;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+      white-space: pre-wrap;
+      padding: 10px;
+      background-color: #2e2e2e;
+      color: #fff;
+      border-radius: 5px;
+    }
+
+    .message {
+      width: 100%;
+      margin: 10px 0;
+      padding: 10px;
+      border-radius: 10px;
+      line-height: 1.5;
+    }
+
+    .user-message {
+      align-self: flex-end;
+      background-color: #4caf50;
+      color: #121212;
+    }
+
+    .system-message {
+      align-self: flex-start;
+      background-color: #333;
+      color: #fff;
+    }
+
+    .input-container {
+      width: 100%;
+      max-width: 600px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 10px;
+      padding: 10px;
+    }
+
+    #search-input {
+      flex: 1;
+      padding: 10px;
+      font-size: 16px;
+      border: none;
+      border-radius: 5px;
+      background-color: #333;
+      color: #fff;
+      outline: none;
+    }
+
+    #search {
+      padding: 10px 20px;
+      font-size: 16px;
+      background-color: #4caf50;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    #search:hover {
+      background-color: #45a049;
+    }
+  </style>
+  <script type="module">
+    import { pipeline } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@latest/dist/transformers.min.js';
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      const extractor = await pipeline('feature-extraction', 'mixedbread-ai/mxbai-embed-large-v1', {
+        quantized: false,
+      });
+
+      const generator = await pipeline('text-generation', 'onnx-community/Llama-3.2-1B-Instruct-q4f16', {});
+
+      let storedChunks = [];
+      try {
+        const text = `
+        1. OBJETIVO
+        Realizar la emisión de los certificados digitales de acuerdo con la solicitud del solicitante,
+        garantizando la identidad de la persona, la veracidad de la información y el buen
+        funcionamiento del certificado; cumpliendo con lo establecido en la DPC.
+        2. ALCANCE
+        Este procedimiento aplica para la emisión de certificados digitales de personas naturales
+        o jurídicas, de acuerdo con la Políticas de Certificados Digitales.
+        3. DEFINICIONES
+        Autoridad de Certificación (CA): En inglés “Certification Authority” (CA), Autoridad de
+        Certificación, entidad raíz y entidad prestadora de servicios de certificación de
+        infraestructura de llave pública.
+        Autoridad de Registro (RA): En inglés “Registration Authority” (RA), es la entidad
+        encargada de certificar la validez de la información suministrada por el solicitante de un
+        certificado digital, mediante la verificación de su identidad y su registro.
+        Archivo Nacional de Identificación (ANI): base de datos donde se encuentra la
+        información biográfica de todos los colombianos, la cual es custodiada por la Registraduría
+        Nacional del Estado Civil (RNEC).
+        Certificado digital: mensaje de datos electrónico firmado por la entidad de certificación
+        digital, el cual identifica tanto a la entidad de certificación que lo expide, como al suscriptor
+        y contiene la llave pública de este último.
+        Certificado digital revocado: mensaje de datos electrónico firmado por la entidad de
+        certificación digital, que fue cancelado por solicitud del suscriptor, cuando ocurra cualquiera
+        de las circunstancias mencionadas en los términos y condiciones publicados en la página
+        web de GSE S.A.; www.gse.com.co.
+        Criterios Específicos de Acreditación (CEA): reglas, requisitos y políticas que deben ser
+        cumplidos como Entidad de Certificación Digital (ECD), ante el Organismo Nacional de
+        Acreditación de Colombia (ONAC).
+        Confronta: servicio suministrado por un tercero, donde reposa la información reportada por
+        las entidades con las que los ciudadanos han tenido algún vínculo financiero, comercial o
+        de servicios.
+        Declaración de Prácticas de Certificación (DPC): En inglés “Certification Practice
+        Statement” (CPS), manifestación de la entidad de certificación sobre las políticas y
+        procedimientos que aplica para la prestación de sus servicios.
+        Direccion de Impuestos y Aduanas Nacionales (DIAN): es una unidad administrativa
+        especial (UAE) del Estado Colombiano. Es una entidad gubernamental técnica y
+        especializada de carácter nacional que goza de personería jurídica propia, autonomía
+        presupuestal y administrativa, adscrita al Ministerio de Hacienda y Crédito Público.
+        Dispositivo criptográfico (Token): es un dispositivo externo (hardware) en el que se
+        generan, almacenan y protegen claves criptográficas para firmado digital.
+        Entidad de Certificación Digital (ECD): Es aquella persona jurídica, acreditada conforme
+        a la ley 527 de 1999 y el Decreto 333 de 2014, facultada por el gobierno Colombiano
+        (Organismo Nacional de Acreditación en Colombia) para emitir certificados en relación con
+        las firmas digitales de los clientes que las adquieran, ofrecer o facilitar los servicios de
+        registro y estampado cronológico de la transmisión y recepción de mensajes de datos, así
+        como cumplir otras funciones relativas a las comunicaciones basadas en las firmas
+        digitales.
+        Infraestructura de Llave Pública en inglés de “Public Key Infrastructure” sigla (PKI):
+        conjunto de hardware, software, personas, procedimientos y políticas que se utilizan para
+        proveer la creación, emisión, administración y uso confiable de Certificados y llaves
+        basados en Criptografía de clave pública.
+        Módulo Criptográfico Hardware de Seguridad (HSM): módulo hardware utilizado para
+        realizar funciones criptográficas y almacenar llaves en modo seguro.
+        Listas Inhibitorias. Relación de personas naturales o jurídicas que realizan organismos
+        públicos o privados, locales o internacionales sobre vínculos con actividades delictivas que
+        no son vinculantes para Colombia.
+        Política de Certificación (PC). Es un conjunto de reglas que definen las características de
+        los distintos tipos de certificados y su uso.
+        Registro Único Empresarial y Social (RUES). Sistema integrado de información en
+        tiempo real, que ofrece servicios de consulta en línea sobre el estado actual de las
+        empresas en Colombia.
+        Solicitante: Toda persona natural o jurídica que solicita un servicio de certificación o la
+        expedición o renovación de un certificado digital.
+        Suscriptor y/o responsable: Persona natural o jurídica a la cual se emiten o activan los
+        servicios de certificación digital y por tanto actúa como suscriptor o responsable del mismo.
+        4. CONDICIONES GENERALES
+        1. Dar cumplimiento con lo establecido en la Declaración de Practicas de Certificación, la
+        Política para Servicio de Certificado Digitales, los Criterios Específicos de Acreditación
+        y demás aplicables.
+        2. Garantizar el cumplimiento con los lineamientos establecidos en la Política de
+        Seguridad de la Información y la Política de Tratamiento de Datos Personales.
+        3. Cuando el mensajero del Operador Logístico no se presenta para realizar la recolección
+        de los certificados digitales, como alternativa se deben llevar los dispositivos
+        criptográficos a un punto de venta del Operador Logístico.
+        4. Los clientes pueden recoger el certificado digital en las instalaciones de la ECD.
+        5. Para el caso de las revocaciones de los certificados digitales se ejecutará el
+        Procedimiento de revocación de certificados digitales – POP-PD-11.
+        6. De acuerdo con el diseño del procedimiento, la actividad de Revisión de la Solicitud
+        equivale a Validación Documental y la actividad de Revisión equivale a Verificación.
+        7. Al realizar la Revisión de la Solicitud y la Revisión, los documentos se recibirán
+        escaneados o en original electrónico, preservando la legibilidad para el uso de la
+        información.
+        8. La información de domicilio del solicitante: país, departamento, municipio y dirección
+        se revisará en los documentos: Documento de Existencia y Representación Legal de
+        la Empresa o Registro Único Tributario – RUT.
+        9. Para las solicitudes que vienen instanciadas desde la plataforma de la DIAN y que
+        tienen previa validación de identidad por parte de dicha entidad, se les validará el correo
+        electrónico de la solicitud contra el registrado en el RUT, si el correo electrónico es
+        consistente, esas solitudes no consumirán el servicio validación de identidad por
+        confronta, pero si se verificaran contra el ANI de la RNEC.
+        10. La activación para uso del certificado digital la realizará únicamente por el suscriptor a
+        través de las credenciales enviadas al correo electrónico registrado en la solicitud.
+        11. En la Plataforma de Gestión de la RA se visualizará el registro de auditoria (trazabilidad)
+        de la Revisión de la Solicitud, Revisión y Decisión sobre la Certificación Digital.
+        12. Los Analistas de Ciclo de Certificación – RA: Analista Junior Ciclo de Certificación y
+        Analista Ciclo de Certificación podrán realizar actividades relacionadas con la Revisión
+        de la Solicitud y Revisión, siempre y cuando se garantice la imparcialidad y una solicitud
+        no haya sido procesada (Revisión de la Solicitud y Revisión) por el mismo Analista de
+        Ciclo de Certificación – RA.
+        `
+        const chunks = chunkText(text, 256);
+        const results = [];
+
+        for (const chunk of chunks) {
+          const output = await extractor(chunk, { pooling: 'mean', quantize: true, precision: 'binary' });
+          results.push({ chunk, embedding: output });
+        }
+
+        storedChunks = results;
+        document.getElementById('output').textContent = JSON.stringify('Se cargaron los vectores.', null, 2);
+      } catch (error) {
+        console.error('Error:', error);
+      }
+    
+      document.getElementById('search').addEventListener('click', async () => {
+        const query = document.getElementById('search-input').value;
+        const queryEmbedding = await extractor(query, { pooling: 'mean', quantize: true, precision: 'binary' });
+        const similarities = storedChunks.map(({ chunk, embedding }) => ({
+          chunk,
+          similarity: cosineSimilarity(queryEmbedding, embedding)
+        }));
+
+        similarities.sort((a, b) => b.similarity - a.similarity);
+        const top3 = similarities.slice(0, 3);
+        document.getElementById('search-output').textContent = JSON.stringify(top3, null, 2);
+
+        if (top3.length > 0) {
+          const mostSimilarChunk = top3[0].chunk;
+          const messages = [
+            { role: "system", content: "You are a research assistant. Answer the question: " + query },
+            { role: "user", content: mostSimilarChunk },
+          ];
+
+          const output = await generator(messages, { max_new_tokens: 128 });
+          document.getElementById('generated-output').textContent = output[0].generated_text[2].content;
+        }
+      });      
+
+      function chunkText(text, maxTokens) {
+        const chunks = [];
+        const sentences = text.split(/\n|(?<=\.)/);
+      
+        let currentChunk = "";
+      
+        for (const sentence of sentences) {
+          if ((currentChunk + sentence).length > maxTokens) {
+            chunks.push(currentChunk.trim());
+            currentChunk = "";
+          }
+          currentChunk += sentence;
+        }
+
+        if (currentChunk.trim().length > 0) {
+          chunks.push(currentChunk.trim());
+        }      
+        return chunks;
+      }
+
+      function cosineSimilarity(vecA, vecB) {
+        const dataA = Object.values(vecA.ort_tensor.cpuData);
+        const dataB = Object.values(vecB.ort_tensor.cpuData);
+
+        const dotProduct = dataA.reduce((sum, a, idx) => sum + a * dataB[idx], 0);
+        const magnitudeA = Math.sqrt(dataA.reduce((sum, a) => sum + a * a, 0));
+        const magnitudeB = Math.sqrt(dataB.reduce((sum, b) => sum + b * b, 0));
+
+        return dotProduct / (magnitudeA * magnitudeB);
+      }
+    });
+  </script>
+</head>
+<body>
+  <h1>Dori WASM</h1>
+  <div class="chat-container">
+    <pre id="output">Cargando...</pre>
+  </div>
+  <div class="chat-container">
+    <pre id="search-output"></pre>
+  </div>
+  <div class="input-container">
+    <input type="text" id="search-input" placeholder="Escribe tu mensaje aquí...">
+    <button id="search">Enviar</button>
+  </div>
+</body>
+</html>
